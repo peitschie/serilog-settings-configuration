@@ -45,41 +45,44 @@ namespace Serilog
             return settingConfiguration.ConfigurationSection(configuration.GetSection(DefaultSectionName), dependencyContext);
         }
 
-#if !NETSTANDARD1_3
         /// <summary>
         /// Reads logger settings from the provided configuration section.
         /// </summary>
         /// <param name="settingConfiguration">Logger setting configuration.</param>
         /// <param name="configuration">The Serilog configuration section</param>
-        /// <returns>An object allowing configuration to continue.</returns>
-        public static LoggerConfiguration ConfigurationSection(
-            this LoggerSettingsConfiguration settingConfiguration,
-            IConfigurationSection configuration)
-        {
-            return ConfigurationSection(
-                    settingConfiguration,
-                    configuration,
-                    DependencyContext.Default);
-        }
-#endif
-
-        /// <summary>
-        /// Reads logger settings from the provided configuration section.
-        /// </summary>
-        /// <param name="settingConfiguration">Logger setting configuration.</param>
-        /// <param name="configuration">The Serilog configuration section</param>
-        /// <param name="dependencyContext">The dependency context from which sink/enricher packages can be located.</param>
+        /// <param name="dependencyContext">The dependency context from which sink/enricher packages can be located. If not supplied, the platform
+        /// default will be used.</param>
         /// <returns>An object allowing configuration to continue.</returns>
         public static LoggerConfiguration ConfigurationSection(
             this LoggerSettingsConfiguration settingConfiguration,
             IConfigurationSection configuration,
-            DependencyContext dependencyContext)
+            DependencyContext dependencyContext = null)
         {
             if (settingConfiguration == null) throw new ArgumentNullException(nameof(settingConfiguration));
             if (configuration == null) throw new ArgumentNullException(nameof(configuration));
 
-            return settingConfiguration.Settings(new ConfigurationReader(configuration, dependencyContext));
+            return settingConfiguration.Settings(
+                new ConfigurationReader(
+                    configuration,
+                    dependencyContext ?? GetDefaultDependencyContext()));
         }
 
+        /// <summary>
+        /// Get the default DependencyContext for the platform
+        /// </summary>
+        /// <returns>The default dependency context used for assembly resolution.</returns>
+        public static DependencyContext GetDefaultDependencyContext()
+        {
+#if !NETSTANDARD1_3
+            return Assembly.GetEntryAssembly() != null ? DependencyContext.Default : null;
+#else
+            var defaultProperty = typeof(DependencyContext).GetTypeInfo().GetDeclaredProperty("Default");
+            if (defaultProperty != null)
+            {
+                return (DependencyContext)defaultProperty.GetValue(null);
+            }
+            return null;
+#endif
+        }
     }
 }
